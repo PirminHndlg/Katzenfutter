@@ -1,0 +1,107 @@
+#include <AccelStepper.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+
+#define ENABLE D8
+#define STEP D7
+#define DIR D6
+#define KNOPP D3
+
+#define WIFI_SSID "Kitchenaid"
+#define WIFI_PASS "Hufflepuff!!2019"
+
+long schritt = 0;
+
+ESP8266WebServer server(80);
+
+
+AccelStepper stepper(AccelStepper::DRIVER, STEP, DIR);
+
+
+void wifiSetup() {
+  
+  // Set WIFI module to STA mode
+  WiFi.mode(WIFI_STA);
+  
+  // Connect
+  Serial.printf("[WIFI] Connecting to %s ", WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  
+  // Wait until connected
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(100);
+  }
+  Serial.println();
+  
+  // Connected!
+  Serial.printf("[WIFI] STATION Mode, SSID: %s, IP address: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+}
+
+void serverSetup() {
+  Serial.println("Server starting");
+  server.on("/", fuetterung);
+
+  server.begin();
+  Serial.println("Server started");
+}
+
+void stepperSetup() {
+  Serial.println("Stepper Setup");
+  
+  stepper.setMaxSpeed(75);
+  stepper.setSpeed(75);
+  stepper.setAcceleration(500);
+  stepper.setCurrentPosition(0);
+  stepper.setEnablePin(ENABLE);
+}
+
+void fuetterung() {
+  Serial.println("Fütterung Start");
+  server.send(200, "text/html");
+  stepper.disableOutputs();
+  stepper.moveTo(schritt + 170);
+  do {
+    stepper.run();
+    yield();
+  } while (stepper.distanceToGo() != 0);
+  schritt = stepper.currentPosition();
+  stepper.enableOutputs();
+  Serial.println("Fütterung Ende");
+}
+
+void setup() {
+
+  Serial.begin(115200);
+  delay(200);
+  
+  Serial.println();
+  Serial.println("Hallo, Herzlich Willkommen zum automatischen Fütterungsautomat für Katzen");
+  Serial.println("© PirminHndlg");
+  Serial.println("Setup Start");
+
+  delay(1000);
+  
+  wifiSetup();
+  serverSetup();
+  stepperSetup();
+
+  pinMode(KNOPP, INPUT);
+  
+  millis();
+  Serial.println("Setup Ende");
+  delay(1000);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  server.handleClient();
+  if (digitalRead(KNOPP) == HIGH) {
+    fuetterung();
+  }
+ 
+/*  while ((stepper.currentPosition() % 6) != 0) {
+    
+  }
+  */
+}
